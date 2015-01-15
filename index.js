@@ -35,10 +35,14 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 			var dataElement, dataProperty, dataValue,
 				translateStart, translateEnd, translateFrom, translateTo;
 
+			// The element/object the .dataset property is read from
 			dataElement = script.substring(pn[pn.length - 1].range[0], n.range[0]-1);
-			//console.log(pn[pn.length - 2].property);
-			if ('value' in pn[pn.length - 2].property) {
-				dataProperty = '"' + pn[pn.length - 2].property.value + '"';
+
+			// Simple inline property access via dot operator
+			if ('name' in pn[pn.length - 2].property) {
+				dataProperty = '"' + pn[pn.length - 2].property.name + '"';
+
+			// Property access via array attribute accessor (literal/expression)
 			} else {
 				dataProperty = script.substring(pn[pn.length - 2].property.range[0],pn[pn.length - 2].property.range[1]);
 			}
