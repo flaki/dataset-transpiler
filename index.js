@@ -13,7 +13,7 @@ var splice = require('./lib/splice.js');
 // of .dataset property accesses (gets & sets) with Data
 module.exports = function(script, addRuntime, runtimePrefix) {
 	// Prepends runtime Data.* functions to the returned source output
-	addRuntime = addRuntime || true;
+	addRuntime = addRuntime === void 0 ? true : addRuntime;
 
 	// Default runtime prefix is Data.(get|set)
 	runtimePrefix = runtimePrefix || 'Data';
@@ -81,6 +81,9 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 	// Display script output
 	console.log('\nTranspiled output:');
 	outScript.split(/\n/).map(function(line, n) { console.log(++n +'  '+ line); });
+
+	// Transpiled script
+	return outScript;
 }
 
 
