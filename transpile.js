@@ -1,4 +1,10 @@
+// Esprima parser
 var esprima = require('esprima');
+
+// Splice for strings
+require('./lib/splice.js').install();
+
+
 
 var script = `
 el.dataset.prop = "val";
