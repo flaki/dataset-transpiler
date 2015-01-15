@@ -10,7 +10,7 @@
     "jasmine-core": "^2.1.3"
   },
   "scripts": {
-    "demo": "iojs index.js",
+    "demo": "iojs demo.js",
     "test": "jasmine"
   },
   "author": "@slsoftworks",

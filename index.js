@@ -38,19 +38,21 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 			// The element/object the .dataset property is read from
 			dataElement = script.substring(pn[pn.length - 1].range[0], n.range[0]-1);
 
-			// Simple inline property access via dot operator
+			// Dataset attribute access type
 			if ('name' in pn[pn.length - 2].property) {
+				// Simple inline property access via dot operator
 				dataProperty = '"' + pn[pn.length - 2].property.name + '"';
-
-			// Property access via array attribute accessor (literal/expression)
 			} else {
+				// Property access via array attribute accessor (literal/expression)
 				dataProperty = script.substring(pn[pn.length - 2].property.range[0],pn[pn.length - 2].property.range[1]);
 			}
 
-			if (pn[pn.length - 3].type ="AssignmentExpression" && 'operator' in pn[pn.length - 3]) {
-				//console.log(pn[pn.length - 3]);
+			// Decide whether this a set or get expression
+			if (pn[pn.length - 3].operator && pn[pn.length - 3].left === pn[pn.length - 2]) {
+				// Assignment expression with dataset on the left - this is a setter
 				dataValue = script.substring(pn[pn.length -3].right.range[0],pn[pn.length -3].right.range[1]);
 			} else {
+				// This is a getter
 				dataValue = null;
 			}
 
@@ -63,9 +65,11 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 				+ (dataValue ? 'set' : 'get')
 				+ '( ' + dataElement + ', ' + dataProperty + (dataValue ? ', ' + dataValue : '') + ' )';
 
-			//console.log(translateFrom + ' ->' +translateTo);
-			//console.log(pn.reduce(function(p,c) { return p +'> '+ (c.type||'?') +' '; }, '|'));
-			//console.log(JSON.stringify(pn[pn.length - 2],null,4));
+			if (this&&this.debug) {
+				console.log(translateFrom + ' -> ' +translateTo);
+				console.log(pn.reduce(function(p,c) { return p +'> '+ (c.type||'?') +' '; }, '|'));
+				console.log(JSON.stringify(pn[pn.length - 3], null, 4));
+			}
 
 			// Splice output
 			outScript = splice(outScript, translateStart + outOffset, translateEnd + outOffset, translateTo);
@@ -78,26 +82,16 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 	// Add runtime
 	if (addRuntime) outScript = 'var Data=(function(){function _p2a(p){return a};function _a2p(a){return p};return {"get":function(e,p){},"set":function(e,p,v){}}})();\n\n' + outScript;
 
-	// Display original script
-	console.log('\nOriginal script:');
-	script.split(/\n/).map(function(line, n) { console.log(++n +'  '+ line); });
+	if (this&&this.debug) {
+		// Display original script
+		console.log('\nOriginal script:');
+		script.split(/\n/).map(function(line, n) { console.log(++n +'  '+ line); });
 
-	// Display script output
-	console.log('\nTranspiled output:');
-	outScript.split(/\n/).map(function(line, n) { console.log(++n +'  '+ line); });
+		// Display script output
+		console.log('\nTranspiled output:');
+		outScript.split(/\n/).map(function(line, n) { console.log(++n +'  '+ line); });
+	}
 
 	// Transpiled script
 	return outScript;
-}
-
-
-
-module.exports(`
-el.dataset.prop = "val";
-var propvar = el.dataset.prop;
-document.querySelector('body').dataset.prop = "val";
-document.body['firstChild'].children[2].lastChild.dataset.prop ="n";
-elem.dataset['somethingWeird'];
-document.querySelector('body').dataset['even'+2+'Weirder'] = "val";
-elem.dataset.prop = "complicated" + (function(){ return 'functioncall';})() + 3*(xpre)+5510+n;
-`);
+};
