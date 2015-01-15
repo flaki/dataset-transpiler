@@ -14,6 +14,11 @@ function _p2a(p){return 'data-'+(p.replace(/([A-Z])/g,'-$1')).toLowerCase();};
 // Runtime: convert attribute to property (camelcase) form
 function _a2p(a){return a.replace(/^data\-([a-z0-9\-]+)/,'$1').replace(/\-([a-z0-9])/g,function(r,m){return m.toUpperCase()})};
 
+// Runtime: get data attribute
+var _get = function(e,p){p=_p2a(p);if(e&&e.getAttribute){return e.hasAttribute(p)?e.getAttribute(p):void 0}};
+
+// Runtime: set data attribute
+var _set = function(e,p,v){p=_p2a(p);if(e&&e.setAttribute){e.setAttribute(p,v);return v}};
 
 
 // Parses the passed JavaScript source, replacing occurences
@@ -88,11 +93,18 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 
 	// Add runtime
 	if (addRuntime) {
-		outScript = 'var Data=(function(){'
+		outScript = 'var '
+			+ runtimePrefix
+			+ '=(function(){'
 			+ (_p2a.toString())
 			+ ';'
 			+ (_a2p.toString())
-			+ ';return {"get":function(e,p){},"set":function(e,p,v){}}})();\n\n' + outScript;
+			+ ';return {'
+			+ '"get":' + (_get.toString())
+			+ ','
+			+ '"set":' + (_set.toString())
+			+ '}})();\n\n'
+			+ outScript;
 	}
 
 	if (this&&this.debug) {
