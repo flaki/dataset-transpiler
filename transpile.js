@@ -7,6 +7,7 @@ document.querySelector('body').dataset.prop = "val";
 document.body['firstChild'].children[2].lastChild.dataset.prop ="n";
 elem.dataset['somethingWeird'];
 document.querySelector('body').dataset['even'+2+'Weirder'] = "val";
+elem.dataset.prop = "complicated" + (function(){ return 'functioncall';})() + 3*(xpre)+5510+n;
 `;
 
 
@@ -55,8 +56,15 @@ traverse(astl, function(n, pn) {
 			dataProperty = script.substring(pn[pn.length - 2].property.range[0],pn[pn.length - 2].property.range[1]);
 		}
 
-		console.log(script.substring(pn[pn.length - 2].range[0], pn[pn.length - 2].range[1]) + ' ->');
-		console.log('Data.get( ' + dataElement + ', ' + dataProperty + ' )');
+		if (pn[pn.length - 3].type ="AssignmentExpression" && 'operator' in pn[pn.length - 3]) {
+			//console.log(pn[pn.length - 3]);
+			dataValue = script.substring(pn[pn.length -3].right.range[0],pn[pn.length -3].right.range[1]);
+		} else {
+			dataValue = null;
+		}
+
+		console.log(script.substring(pn[pn.length - (dataValue?3:2)].range[0], pn[pn.length - (dataValue?3:2)].range[1]) + ' ->');
+		console.log('Data.'+(dataValue?'set':'get')+'( ' + dataElement + ', ' + dataProperty + (dataValue?', '+dataValue:'') + ' )');
 		console.log(pn.reduce(function(p,c) { return p +'> '+ (c.type||'?') +' '; }, '|'));
 		//console.log(JSON.stringify(pn[pn.length - 2],null,4));
 	}
