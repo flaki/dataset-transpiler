@@ -8,6 +8,13 @@ var traverse = require('./lib/traverse.js');
 // require('./lib/splice.js').install();
 var splice = require('./lib/splice.js');
 
+// Runtime: convert property to attribute form
+function _p2a(p){return 'data-'+(p.replace(/([A-Z])/g,'-$1')).toLowerCase();};
+
+// Runtime: convert attribute to property (camelcase) form
+function _a2p(a){return a.replace(/^data\-([a-z0-9\-]+)/,'$1').replace(/\-([a-z0-9])/g,function(r,m){return m.toUpperCase()})};
+
+
 
 // Parses the passed JavaScript source, replacing occurences
 // of .dataset property accesses (gets & sets) with Data
@@ -80,7 +87,13 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 	});
 
 	// Add runtime
-	if (addRuntime) outScript = 'var Data=(function(){function _p2a(p){return a};function _a2p(a){return p};return {"get":function(e,p){},"set":function(e,p,v){}}})();\n\n' + outScript;
+	if (addRuntime) {
+		outScript = 'var Data=(function(){'
+			+ (_p2a.toString())
+			+ ';'
+			+ (_a2p.toString())
+			+ ';return {"get":function(e,p){},"set":function(e,p,v){}}})();\n\n' + outScript;
+	}
 
 	if (this&&this.debug) {
 		// Display original script
@@ -95,3 +108,7 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 	// Transpiled script
 	return outScript;
 };
+
+// Export runtime functions (for testing)
+module.exports.p2a = _p2a;
+module.exports.a2p = _a2p;
