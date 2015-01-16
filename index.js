@@ -73,7 +73,7 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 			translateEnd =   pn[pn.length - (dataValue ? 3 : 2)].range[1];
 
 			translateFrom = script.substring(translateStart, translateEnd);
-			translateTo = 'Data.'
+			translateTo = runtimePrefix + '.'
 				+ (dataValue ? 'set' : 'get')
 				+ '( ' + dataElement + ', ' + dataProperty + (dataValue ? ', ' + dataValue : '') + ' )';
 
