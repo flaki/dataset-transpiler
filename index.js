@@ -20,49 +20,67 @@ var _get = function(e,p){p=_p2a(p);if(e&&e.getAttribute){return e.hasAttribute(p
 // Runtime: set data attribute
 var _set = function(e,p,v){p=_p2a(p);if(e&&e.setAttribute){e.setAttribute(p,v);return v}};
 
+// Transpiling constants
+var TC_SET = '.set( ',
+	TC_GET = '.get( ',
+	TC_SEPARATOR = ', ',
+	TC_CLOSE = ' )';
+
+
+// Helper function for console.log marking
+function mark(p) {
+	++p;
+	return (function(l,s) {
+		while (--l>=0) s+=s; return s; }
+	)(Math.log2(p-1)+1,' ').substring(0,p-1)+"^";
+}
 
 // Parses the passed JavaScript source, replacing occurences
 // of .dataset property accesses (gets & sets) with Data
-module.exports = function(script, addRuntime, runtimePrefix) {
+module.exports = function(src, addRuntime, runtimePrefix) {
 	// Prepends runtime Data.* functions to the returned source output
 	addRuntime = addRuntime === void 0 ? true : addRuntime;
 
 	// Default runtime prefix is Data.(get|set)
 	runtimePrefix = runtimePrefix || 'Data';
 
-	//console.log(JSON.stringify(esprima.parse(script), null, 2));
+	//console.log(JSON.stringify(esprima.parse(src), null, 2));
 	// Generate AST, with source ranges
-	var astl = esprima.parse(script, { range: true });
+	var astl = esprima.parse(src, { range: true });
 
 	// Create output script
-	var outScript = script,
-		outOffset = 0;
+	var outScript = src,
+		outOffset = 0
+		valueOffset = 0,
+		valueBoundary = 0,
+		offsetBoundary = 0,
+		ofs = [];
 
 	traverse(astl, function(n, pn) {
 		if (n.type === 'Identifier' && n.name === 'dataset') {
 			//console.log('.dataset @ '+n.range[0]+'-'+n.range[1]+' ('+pn.length+')');
 			//console.log(JSON.stringify(pn));
-			//console.log('> ' + script.substring(pn[pn.length - 1].range[0], n.range[0]-1));
+			//console.log('> ' + src.substring(pn[pn.length - 1].range[0], n.range[0]-1));
 
 			var dataElement, dataProperty, dataValue,
-				translateStart, translateEnd, translateFrom, translateTo;
+				translateStart, translateEnd, translateOriginal, translateFrom, translateTo,
+				currentStart, currentOffset, ofsLength, sIdx, eIdx;
 
 			// The element/object the .dataset property is read from
-			dataElement = script.substring(pn[pn.length - 1].range[0], n.range[0]-1);
+			dataElement = src.substring(pn[pn.length - 1].range[0], n.range[0]-1);
 
 			// Dataset attribute access type
+			dataProperty = src.substring(pn[pn.length - 2].property.range[0],pn[pn.length - 2].property.range[1]);
+
+			// Simple inline property access via dot operator, add quotes
 			if ('name' in pn[pn.length - 2].property) {
-				// Simple inline property access via dot operator
-				dataProperty = '"' + pn[pn.length - 2].property.name + '"';
-			} else {
-				// Property access via array attribute accessor (literal/expression)
-				dataProperty = script.substring(pn[pn.length - 2].property.range[0],pn[pn.length - 2].property.range[1]);
+				dataProperty = '"' + dataProperty + '"';
 			}
 
 			// Decide whether this a set or get expression
 			if (pn[pn.length - 3].operator && pn[pn.length - 3].left === pn[pn.length - 2]) {
 				// Assignment expression with dataset on the left - this is a setter
-				dataValue = script.substring(pn[pn.length -3].right.range[0],pn[pn.length -3].right.range[1]);
+				dataValue = src.substring(pn[pn.length -3].right.range[0], pn[pn.length -3].right.range[1]);
 			} else {
 				// This is a getter
 				dataValue = null;
@@ -72,19 +90,108 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 			translateStart = pn[pn.length - (dataValue ? 3 : 2)].range[0];
 			translateEnd =   pn[pn.length - (dataValue ? 3 : 2)].range[1];
 
-			translateFrom = script.substring(translateStart, translateEnd);
-			translateTo = runtimePrefix + '.'
-				+ (dataValue ? 'set' : 'get')
-				+ '( ' + dataElement + ', ' + dataProperty + (dataValue ? ', ' + dataValue : '') + ' )';
+			// Out offset
+			currentOffset = 0;
+			//ofsLength = sIdx = ofs.length - 1;
+			ofsLength = ofs.length - 1;
 
-			if (this&&this.debug) {
-				console.log(translateFrom + ' -> ' +translateTo);
-				console.log(pn.reduce(function(p,c) { return p +'> '+ (c.type||'?') +' '; }, '|'));
-				console.log(JSON.stringify(pn[pn.length - 3], null, 4));
+			// Translated dataElement
+			dataElement = outScript.substring(calcOfs(pn[pn.length - 1].range[0]), calcOfs(n.range[0]-1));
+
+			// Translated dataProperty
+			dataProperty = outScript.substring(calcOfs(pn[pn.length - 2].property.range[0]), calcOfs(pn[pn.length - 2].property.range[1] -1) +1);
+			if ('name' in pn[pn.length - 2].property) dataProperty = '"' + dataProperty + '"';
+
+			// Translated dataValue
+			if (dataValue) dataValue = outScript.substring(calcOfs(pn[pn.length -3].right.range[0]), calcOfs(pn[pn.length -3].right.range[1]));
+
+			function calcOfs(i) {
+				var l = ofsLength;
+				while (l >= 0) {
+					if (ofs[l] && ofs[l].s<=i) {
+						//console.log(i, l, ofs[l], ofs[l].t - ofs[l].s);
+						return i + ofs[l].t - ofs[l].s;
+					}
+					--l;
+				}
+				return i;
 			}
 
-			// Splice output
-			outScript = splice(outScript, translateStart + outOffset, translateEnd + outOffset, translateTo);
+			sIdx = ofs.length - 1;
+			while (sIdx >= 0 && (!ofs[sIdx] || ofs[sIdx].s > translateStart)) --sIdx;
+			if (ofs[sIdx]) {
+				currentOffset = ofs[sIdx].t - ofs[sIdx].s;
+			}
+			//console.log('ofs:',sIdx,ofs[sIdx]);
+
+			// Offset & contents: prefix
+			translateTo = runtimePrefix	+ (dataValue ? TC_SET : TC_GET);
+			currentStart = calcOfs(pn[pn.length - 1].range[0]);
+			//console.log("start:",translateStart,"->",currentStart);
+			ofs.push({
+				s: pn[pn.length - 1].range[0],
+				c: currentStart,
+				t: currentStart + translateTo.length });
+
+			// Offset & contents: element
+			translateTo += dataElement + TC_SEPARATOR;
+			ofs.push({
+				s: pn[pn.length - 2].property.range[0],
+				c: calcOfs(pn[pn.length - 2].property.range[0]),
+				t: currentStart + translateTo.length });
+
+			// Offset & contents: property
+			translateTo += dataProperty;
+
+			// Offset & contents: value
+			if (dataValue) {
+				translateTo += TC_SEPARATOR;
+				ofs.push({
+					s: pn[pn.length - 3].right.range[0],
+					c: calcOfs(pn[pn.length - 3].right.range[0]),
+					t: currentStart + translateTo.length });
+
+				translateTo += dataValue;
+			} else {
+				ofs.push(null);
+			}
+
+			// Offset & contents: end of translated string
+			translateTo += TC_CLOSE;
+			ofs.push({
+				s: translateEnd,
+				c: calcOfs(translateEnd),
+				t: currentStart + translateTo.length });
+
+			// Translate contents (source)
+			translateOriginal = src.substring(translateStart, translateEnd);
+			if (ofs.length>0) {
+				translateFrom = outScript.substring(ofs[ofs.length - 4].c, calcOfs(ofs[ofs.length - 1].s -1) +1);
+			} else {
+				translateFrom	= translateOriginal;
+			}
+
+			if (this&&this.debug) {
+				console.log(translateOriginal,' ->\n',translateFrom,' ->\n',translateTo,'\n');
+				console.log(src);
+				console.log(ofs.slice(-4).reduce(function(str, current) {
+					return str + (current ? mark(current.s).substring(str.length) : '');
+				},''));
+				console.log(outScript);
+				console.log(ofs.slice(-4).reduce(function(str, current) {
+					return str + (current ? mark(current.c||0).substring(str.length) : '');
+				},'')+'\n');
+			}
+
+			// Execute replacement
+			outScript = splice(outScript, ofs[ofs.length - 4].c, calcOfs(ofs[ofs.length - 1].s -1) +1, translateTo);
+
+			if (this&&this.debug) {
+				console.log(outScript);
+				console.log(ofs.slice(-4).reduce(function(str, current) {
+					return str + (current ? mark(current.t).substring(str.length) :'');
+				},'')+'\n');
+			}
 
 			// Update offset
 			outOffset += translateTo.length - (translateEnd - translateStart);
@@ -110,7 +217,7 @@ module.exports = function(script, addRuntime, runtimePrefix) {
 	if (this&&this.debug) {
 		// Display original script
 		console.log('\nOriginal script:');
-		script.split(/\n/).map(function(line, n) { console.log(++n +'  '+ line); });
+		src.split(/\n/).map(function(line, n) { console.log(++n +'  '+ line); });
 
 		// Display script output
 		console.log('\nTranspiled output:');
