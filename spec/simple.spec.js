@@ -35,6 +35,7 @@ describe('Transpiling simple dataset references', function() {
 		);
 	});
 
+	// TODO: needs work, fails currently
 	xit('get-ception', function() {
 		expect(
 			transpile('outer.dataset[ inner.dataset.prop ]', false)
@@ -56,6 +57,24 @@ describe('Transpiling simple dataset references', function() {
 			'document.querySelector(e.dataset.selector).dataset[ inner.dataset["prop"] ] = element.dataset.myValue'
 		, false)).toEqual(
 			'Data.set( document.querySelector(e.dataset.selector), Data.get( inner, "prop" ), Data.get( element, "myValue" ) )'
+		);
+	});
+
+	it('combined get/set', function() {
+		expect(transpile(
+			'document.querySelector("#first").dataset.property = second.dataset.myValue;'
+		, false)).toEqual(
+			'Data.set( document.querySelector("#first"), "property", Data.get( second, "myValue" ) );'
+		);
+	});
+
+	// TODO: this currently fails for some reason, the first combined setter
+	// seem to screw up the internal offsets somehow
+	xit('a second set call, following a combined get/set', function() {
+		expect(transpile(
+			'document.querySelector("#first").dataset.property = second.dataset.myValue; document.querySelector(".next").dataset.nextproperty = "value";'
+		, false)).toEqual(
+			'Data.set( document.querySelector("#first"), "property", Data.get( second, "myValue" ) ); Data.set( document.querySelector(".next"), "nextproperty", "value");'
 		);
 	});
 
